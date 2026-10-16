@@ -152,10 +152,14 @@ const Q=[
 ["태양계에서 가장 뜨거운 행성은?",["수성","금성","화성","목성"],1,"짙은 이산화탄소 대기 탓에 약 460°C예요."]
 ];
 const $=id=>document.getElementById(id);
-let i,score,locked,picks;
-function start(){i=0;score=0;picks=[];$("res").classList.add("hidden");$("missed").hidden=true;$("missed").replaceChildren();$("quiz").classList.remove("hidden");$("score").textContent=0;show();}
+let i,score,locked,deck,picks;
+function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
+function start(){
+  deck=shuffle(Q.map(([q,o,a,ex])=>{const idx=shuffle([0,1,2,3]);return [q,idx.map(n=>o[n]),idx.indexOf(a),ex];}));
+  i=0;score=0;picks=[];$("res").classList.add("hidden");$("missed").hidden=true;$("missed").replaceChildren();$("quiz").classList.remove("hidden");$("score").textContent=0;show();
+}
 function show(){
-  locked=false;const [q,o,,]=Q[i];
+  locked=false;const [q,o,,]=deck[i];
   $("count").textContent=`${i+1} / ${Q.length}`;
   $("fill").style.width=`${i/Q.length*100}%`;$("pb").setAttribute("aria-valuenow",i);
   $("q").textContent=`${i+1}. ${q}`;
@@ -167,11 +171,11 @@ function show(){
 }
 function pick(k){
   if(locked)return;locked=true;picks[i]=k;
-  const [, ,a,ex]=Q[i];const bs=[...$("opts").children];
+  const [, ,a,ex]=deck[i];const bs=[...$("opts").children];
   bs.forEach((b,n)=>{b.disabled=true;if(n==a)b.classList.add("ok");else if(n==k)b.classList.add("bad");else b.classList.add("dim");});
   const fb=$("fb");
   if(k==a){score++;$("score").textContent=score;fb.textContent="🎉 정답입니다! "+ex;fb.className="fb ok show";burst(18);}
-  else{fb.textContent="💥 아쉬워요! 정답은 “"+Q[i][1][a]+"”. "+ex;fb.className="fb bad show";}
+  else{fb.textContent="💥 아쉬워요! 정답은 “"+deck[i][1][a]+"”. "+ex;fb.className="fb bad show";}
   $("fill").style.width=`${(i+1)/Q.length*100}%`;$("pb").setAttribute("aria-valuenow",i+1);
   $("next").disabled=false;$("next").focus();
 }
@@ -185,7 +189,7 @@ function burst(n){
 $("next").onclick=()=>{if(i<Q.length-1){i++;show();}else finish();};
 function renderMissed(){
   const box=$("missed");box.replaceChildren();box.hidden=false;box.removeAttribute("tabindex");
-  const missed=[...Q.keys()].filter(n=>picks[n]!==Q[n][2]);
+  const missed=[...deck.keys()].filter(n=>picks[n]!==deck[n][2]);
   if(!missed.length){
     const p=document.createElement("p");p.className="perfect";p.textContent="모든 문제를 맞혔어요!";
     box.appendChild(p);return;
@@ -194,7 +198,7 @@ function renderMissed(){
   h.textContent=`틀린 문제 ${missed.length}개`;
   const ol=document.createElement("ol");
   missed.forEach(n=>{
-    const [q,o,a,ex]=Q[n];
+    const [q,o,a,ex]=deck[n];
     const li=document.createElement("li");
     const p=document.createElement("p");p.className="mq";p.textContent=`${n+1}. ${q}`;
     const dl=document.createElement("dl");
