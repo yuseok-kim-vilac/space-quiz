@@ -88,6 +88,17 @@ body::after{opacity:var(--star-o);
 .next:focus-visible{outline-color:var(--text)}
 .opt kbd{display:inline-block;min-width:22px;margin-right:10px;padding:0 6px;text-align:center;font:600 12px/20px ui-monospace,Consolas,monospace;color:var(--muted);border:1px solid var(--border);border-radius:6px}
 .hint{text-align:center;color:var(--muted);font-size:13px;margin:14px 0 0}
+.missed{text-align:left;margin:0 0 20px;max-height:40vh;overflow-y:auto}
+.missed:focus-visible{outline-offset:-3px}
+.missed-title{font-size:15px;font-weight:600;color:var(--text);margin:0 0 10px}
+.missed ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.missed li{border:1px solid var(--border);border-left:4px solid var(--bad);border-radius:12px;padding:12px 14px;background:var(--card)}
+.missed .mq{margin:0 0 8px;font-weight:600;font-size:15px;line-height:1.5}
+.missed dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:14px}
+.missed dt{color:var(--muted)}
+.missed dd{margin:0}
+.missed .exp{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.perfect{margin:0 0 20px;font-size:17px;font-weight:600;color:var(--text)}
 .result.party{border-color:#f5b83d;box-shadow:0 0 0 1px #f5b83d,0 0 40px rgba(245,184,61,.35),var(--shadow);animation:fade .35s,glow 2s ease-in-out infinite alternate}
 @keyframes glow{to{box-shadow:0 0 0 1px #f5b83d,0 0 60px rgba(240,98,122,.45),var(--shadow)}}
 .banner{display:none;margin:0 0 8px;font-weight:700;color:#b7791f;letter-spacing:.04em}
@@ -122,6 +133,7 @@ body::after{opacity:var(--star-o);
     <div class="banner" id="banner" role="status">🎉 우주 탐험 대성공! 🎉</div>
     <div class="big" id="final"></div>
     <p class="msg" id="msg"></p>
+    <section class="missed" id="missed" aria-labelledby="missed-title" hidden></section>
     <button class="next" id="again">다시 도전하기</button>
   </section>
   <p class="hint" id="hint">키보드: 1–4 선택 · Enter 다음 · Tab 이동</p>
@@ -140,11 +152,11 @@ const Q=[
 ["태양계에서 가장 뜨거운 행성은?",["수성","금성","화성","목성"],1,"짙은 이산화탄소 대기 탓에 약 460°C예요."]
 ];
 const $=id=>document.getElementById(id);
-let i,score,locked,deck;
+let i,score,locked,deck,picks;
 function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
 function start(){
   deck=shuffle(Q.map(([q,o,a,ex])=>{const idx=shuffle([0,1,2,3]);return [q,idx.map(n=>o[n]),idx.indexOf(a),ex];}));
-  i=0;score=0;$("res").classList.add("hidden");$("quiz").classList.remove("hidden");$("score").textContent=0;show();
+  i=0;score=0;picks=[];$("res").classList.add("hidden");$("missed").hidden=true;$("missed").replaceChildren();$("quiz").classList.remove("hidden");$("score").textContent=0;show();
 }
 function show(){
   locked=false;const [q,o,,]=deck[i];
@@ -158,7 +170,7 @@ function show(){
   $("box").classList.remove("fade");void $("box").offsetWidth;$("box").classList.add("fade");
 }
 function pick(k){
-  if(locked)return;locked=true;
+  if(locked)return;locked=true;picks[i]=k;
   const [, ,a,ex]=deck[i];const bs=[...$("opts").children];
   bs.forEach((b,n)=>{b.disabled=true;if(n==a)b.classList.add("ok");else if(n==k)b.classList.add("bad");else b.classList.add("dim");});
   const fb=$("fb");
@@ -175,12 +187,38 @@ function burst(n){
     document.body.appendChild(e);setTimeout(()=>e.remove(),2600);}
 }
 $("next").onclick=()=>{if(i<Q.length-1){i++;show();}else finish();};
+function renderMissed(){
+  const box=$("missed");box.replaceChildren();box.hidden=false;box.removeAttribute("tabindex");
+  const missed=[...deck.keys()].filter(n=>picks[n]!==deck[n][2]);
+  if(!missed.length){
+    const p=document.createElement("p");p.className="perfect";p.textContent="모든 문제를 맞혔어요!";
+    box.appendChild(p);return;
+  }
+  const h=document.createElement("h2");h.id="missed-title";h.className="missed-title";
+  h.textContent=`틀린 문제 ${missed.length}개`;
+  const ol=document.createElement("ol");
+  missed.forEach(n=>{
+    const [q,o,a,ex]=deck[n];
+    const li=document.createElement("li");
+    const p=document.createElement("p");p.className="mq";p.textContent=`${n+1}. ${q}`;
+    const dl=document.createElement("dl");
+    [["내 답",o[picks[n]]],["정답",o[a]]].forEach(([label,v])=>{
+      const dt=document.createElement("dt");dt.textContent=label;
+      const dd=document.createElement("dd");dd.textContent=v;
+      dl.append(dt,dd);
+    });
+    const e=document.createElement("p");e.className="exp";e.textContent=ex;
+    li.append(p,dl,e);ol.appendChild(li);
+  });
+  box.append(h,ol);box.tabIndex=0;
+}
 function finish(){
   $("quiz").classList.add("hidden");$("res").classList.remove("hidden");
   const r=score/Q.length;
   const [e,m]=r==1?["🏆","완벽해요! 당신은 우주 박사!"]:r>=.8?["🚀","훌륭해요! 우주비행사 자격 충분!"]:r>=.6?["🌟","좋아요! 조금만 더 탐험해 봐요."]:r>=.4?["🛰️","괜찮아요, 계속 궤도를 돌아봐요."]:["🌑","다시 도전해 봐요. 우주는 넓으니까요!"];
   $("emoji").textContent=e;$("final").textContent=`${score} / ${Q.length}`;$("msg").textContent=m;
   const party=score>=8;$("res").classList.toggle("party",party);
+  renderMissed();
   if(r>=.6)burst(60);
   if(party)[600,1300,2000].forEach(t=>setTimeout(()=>burst(40),t));
   $("again").focus();
